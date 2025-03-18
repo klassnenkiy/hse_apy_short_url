@@ -6,9 +6,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/link_service
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=your_secret_key
+      - DATABASE_URL=
+      - REDIS_URL=
+      - SECRET_KEY=
     depends_on:
       - db
       - redis
