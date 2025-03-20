@@ -5,6 +5,7 @@ from typing import Optional
 class LinkBase(BaseModel):
     original_url: HttpUrl
     expires_at: Optional[datetime] = None
+    project: Optional[str] = None
 
 class LinkCreate(LinkBase):
     custom_alias: Optional[str] = None
@@ -12,12 +13,14 @@ class LinkCreate(LinkBase):
 class LinkUpdate(BaseModel):
     original_url: Optional[HttpUrl] = None
     expires_at: Optional[datetime] = None
+    project: Optional[str] = None
 
 class LinkOut(BaseModel):
     short_code: str
     original_url: HttpUrl
     created_at: datetime
     expires_at: Optional[datetime] = None
+    project: Optional[str] = None
     visits: int
     last_visited: Optional[datetime] = None
 
@@ -34,7 +37,7 @@ class UserOut(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Token(BaseModel):
     access_token: str

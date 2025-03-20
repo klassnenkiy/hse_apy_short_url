@@ -2,18 +2,17 @@ import string
 import random
 import json
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from models import Link
 from schemas import LinkCreate, LinkOut, LinkUpdate
 from database import get_db
-from auth import get_current_user
+from auth import get_current_user_optional
 from redis_client import get_redis
-from typing import Optional
+from typing import Optional, List
 
 router = APIRouter(prefix="/links", tags=["links"])
-
 
 def generate_short_code(length: int = 6):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -29,7 +28,9 @@ async def search_link(original_url: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/shorten", response_model=LinkOut)
-async def create_link(link: LinkCreate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def create_link(link: LinkCreate,
+                      db: AsyncSession = Depends(get_db),
+                      current_user = Depends(get_current_user_optional)):
     if link.custom_alias:
         result = await db.execute(select(Link).where(Link.custom_alias == link.custom_alias))
         existing = result.scalars().first()
@@ -50,7 +51,8 @@ async def create_link(link: LinkCreate, db: AsyncSession = Depends(get_db), curr
         original_url=str(link.original_url),
         custom_alias=link.custom_alias,
         expires_at=link.expires_at,
-        user_id=current_user.id
+        project=link.project,
+        user_id=current_user.id if current_user else None
     )
     db.add(new_link)
     await db.commit()
@@ -87,13 +89,16 @@ async def redirect_link(short_code: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/{short_code}")
-async def delete_link(short_code: str, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def delete_link(short_code: str,
+                      db: AsyncSession = Depends(get_db),
+                      current_user = Depends(get_current_user_optional)):
     result = await db.execute(select(Link).where(Link.short_code == short_code))
     link_obj = result.scalars().first()
     if not link_obj:
         raise HTTPException(status_code=404, detail="Link not found")
-    if link_obj.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this link")
+    if link_obj.user_id is not None:
+        if not current_user or link_obj.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this link")
     await db.delete(link_obj)
     await db.commit()
     redis = await get_redis()
@@ -102,18 +107,23 @@ async def delete_link(short_code: str, db: AsyncSession = Depends(get_db), curre
 
 
 @router.put("/{short_code}", response_model=LinkOut)
-async def update_link(short_code: str, link_update: LinkUpdate, db: AsyncSession = Depends(get_db),
-                      current_user=Depends(get_current_user)):
+async def update_link(short_code: str,
+                      link_update: LinkUpdate,
+                      db: AsyncSession = Depends(get_db),
+                      current_user = Depends(get_current_user_optional)):
     result = await db.execute(select(Link).where(Link.short_code == short_code))
     link_obj = result.scalars().first()
     if not link_obj:
         raise HTTPException(status_code=404, detail="Link not found")
-    if link_obj.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to update this link")
+    if link_obj.user_id is not None:
+        if not current_user or link_obj.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to update this link")
     if link_update.original_url is not None:
         link_obj.original_url = str(link_update.original_url)
     if link_update.expires_at is not None:
         link_obj.expires_at = link_update.expires_at
+    if link_update.project is not None:
+        link_obj.project = link_update.project
     await db.commit()
     await db.refresh(link_obj)
     redis = await get_redis()
@@ -128,3 +138,16 @@ async def link_stats(short_code: str, db: AsyncSession = Depends(get_db)):
     if not link_obj:
         raise HTTPException(status_code=404, detail="Link not found")
     return link_obj
+
+@router.get("/expired", response_model=List[LinkOut])
+async def get_expired_links(db: AsyncSession = Depends(get_db)):
+    now = datetime.utcnow()
+    result = await db.execute(select(Link).where(Link.expires_at != None, Link.expires_at < now))
+    expired_links = result.scalars().all()
+    return expired_links
+
+@router.get("/project/{project_name}", response_model=List[LinkOut])
+async def get_links_by_project(project_name: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Link).where(Link.project == project_name))
+    links = result.scalars().all()
+    return links

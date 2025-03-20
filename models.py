@@ -10,6 +10,7 @@ class Link(Base):
     short_code = Column(String(50), unique=True, index=True, nullable=False)
     original_url = Column(Text, nullable=False)
     custom_alias = Column(String(50), unique=True, index=True, nullable=True)
+    project = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=True)
     visits = Column(Integer, default=0)

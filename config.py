@@ -10,5 +10,6 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REDIS_URL: str = os.getenv("REDIS_URL")
+    UNUSED_LINKS_DAYS: int = 30
 
 settings = Settings()

@@ -3,6 +3,8 @@ from fastapi import FastAPI
 from database import engine
 from models import Base
 from routes import links, users
+from background_cleanup import scheduler
+import asyncio
 
 app = FastAPI(title="Link Shortener API")
 
@@ -17,6 +19,7 @@ async def read_root():
 async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    asyncio.create_task(scheduler())
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
