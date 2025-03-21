@@ -52,3 +52,20 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+@router.post("/create_admin", response_model=UserOut)
+async def create_admin(user: UserCreate, db: AsyncSession = Depends(get_db)):
+    existing_admin = await db.execute(select(User).where(User.role == "admin"))
+    admin = existing_admin.scalars().first()
+    if admin:
+        raise HTTPException(status_code=400, detail="Admin already exists")
+
+    new_user = User(
+        username=user.username,
+        email=user.email,
+        password_hash=get_password_hash(user.password),
+        role="admin"
+    )
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return new_user
