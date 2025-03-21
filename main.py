@@ -13,7 +13,10 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-app = FastAPI(title="Link Shortener API")
+app = FastAPI(
+    title="Link Shortener API",
+    swagger_ui_oauth2_redirect_url="/docs/oauth2-redirect"
+)
 
 app.include_router(users.router)
 app.include_router(links.router)
