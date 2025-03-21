@@ -1,7 +1,7 @@
 import string
 import random
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, BackgroundTasks
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,6 @@ from database import get_db
 from auth import get_current_user_optional, get_current_user
 from redis_client import get_redis
 from typing import Optional, List
-
 
 router = APIRouter(prefix="/links", tags=["links"])
 
@@ -86,8 +85,7 @@ async def redirect_link(short_code: str,
     link_obj = result.scalars().first()
     if not link_obj:
         raise HTTPException(status_code=404, detail="Link not found")
-
-    if link_obj.expires_at and datetime.utcnow() > link_obj.expires_at:
+    if link_obj.expires_at and datetime.now(timezone.utc) > link_obj.expires_at:
         raise HTTPException(status_code=410, detail="Link expired")
 
     client_ip = request.client.host

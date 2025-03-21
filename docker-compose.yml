@@ -1,21 +1,26 @@
-version: "3.8"
-
 services:
   web:
     build: .
-    container_name: short_url
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL:  ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      SECRET_KEY: ${SECRET_KEY}
-      # ALGORITHM: ${ALGORITHM}
-      # UNUSED_LINKS_DAYS: ${UNUSED_LINKS_DAYS}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
     depends_on:
       - db
       - redis
-
+  ui:
+    build: .
+    command: streamlit run ui_streamlit.py --server.enableCORS false --server.port 8502
+    ports:
+      - "8502:8502"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      - web
   db:
     image: postgres:13
     container_name: db
@@ -27,13 +32,11 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-
   redis:
     image: redis:latest
     container_name: redis
-    # ports:
-    #   - "6379:6379"
-    # для работы web-контейнера достаточно внутренней сети docker
+    ports:
+      - "6379:6379"
 
 volumes:
   pgdata:
