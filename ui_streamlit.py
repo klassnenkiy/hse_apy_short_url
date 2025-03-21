@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 st.set_page_config(layout="wide")
 
 API_URL = "http://web:8000"
+EXTERNAL_API_URL = "http://localhost:8000"
 
 if "token" not in st.session_state:
     st.session_state.token = None
@@ -157,7 +158,7 @@ if st.session_state.token:
                     if col in df_links.columns:
                         df_links[col] = pd.to_datetime(df_links[col], errors="coerce").dt.strftime('%Y-%m-%d %H:%M')
                 df_links["Короткий код"] = df_links["short_code"].apply(
-                    lambda sc: f'<a href="{API_URL}/links/{sc}" target="_blank">{sc}</a>'
+                    lambda sc: f'<a href="{EXTERNAL_API_URL}/links/{sc}" target="_blank">{sc}</a>'
                 )
                 df_links.rename(columns={
                     "original_url": "Оригинальный URL",

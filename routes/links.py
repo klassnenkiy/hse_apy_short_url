@@ -21,11 +21,25 @@ def generate_short_code(length: int = 6):
 
 @router.get("/search")
 async def search_link(original_url: str, db: AsyncSession = Depends(get_db)):
+    try:
+        redis = await get_redis()
+        cached = await redis.get(f"search:{original_url}")
+        if cached:
+            return json.loads(cached)
+    except Exception as e:
+        print(f"Redis error in search cache: {e}")
     result = await db.execute(select(Link).where(Link.original_url == original_url))
     link_obj = result.scalars().first()
     if not link_obj:
         raise HTTPException(status_code=404, detail="Link not found")
-    return {"short_code": link_obj.short_code, "original_url": link_obj.original_url}
+
+    data = {"short_code": link_obj.short_code, "original_url": link_obj.original_url}
+    try:
+        if redis:
+            await redis.set(f"search:{original_url}", json.dumps(data), ex=60 * 10)
+    except Exception as e:
+        print(f"Error setting redis cache for search: {e}")
+    return data
 
 
 @router.post("/shorten", response_model=LinkOut)
