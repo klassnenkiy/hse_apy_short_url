@@ -7,6 +7,7 @@ from routes import links, users, admin
 from background_cleanup import scheduler
 from prometheus_fastapi_instrumentator import Instrumentator
 import asyncio
+from fastapi.responses import RedirectResponse
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -34,6 +35,10 @@ async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     asyncio.create_task(scheduler())
+
+@app.get("/streamlit")
+def redirect_streamlit():
+    return RedirectResponse(url="http://localhost:8501")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
