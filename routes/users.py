@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from schemas import UserCreate, UserOut, Token
 from models import User
 from database import get_db
-from auth import get_password_hash, authenticate_user, create_access_token
+from auth import get_password_hash, authenticate_user, create_access_token, get_current_user
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from config import settings
@@ -17,7 +17,12 @@ async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
     existing_user = result.scalars().first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    new_user = User(username=user.username, password_hash=get_password_hash(user.password))
+    if user.email:
+        result = await db.execute(select(User).where(User.email == user.email))
+        existing_email = result.scalars().first()
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already registered")
+    new_user = User(username=user.username, email=user.email, password_hash=get_password_hash(user.password))
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
@@ -37,3 +42,13 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.get("/me", response_model=UserOut)
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
+    """
+    Возвращаем информацию о текущем пользователе
+    """
+    return current_user
+
+

@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, HttpUrl, Field
+from pydantic import BaseModel, HttpUrl, Field, EmailStr
 from typing import Optional
 
 class LinkBase(BaseModel):
@@ -29,11 +29,13 @@ class LinkOut(BaseModel):
 
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
+    email: EmailStr
     password: str = Field(..., min_length=6)
 
 class UserOut(BaseModel):
     id: int
     username: str
+    email: Optional[str]
     created_at: datetime
 
     class Config:

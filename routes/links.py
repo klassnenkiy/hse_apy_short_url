@@ -2,15 +2,17 @@ import string
 import random
 import json
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Response, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, BackgroundTasks
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from models import Link
+from models import Link, User
 from schemas import LinkCreate, LinkOut, LinkUpdate
 from database import get_db
-from auth import get_current_user_optional
+from auth import get_current_user_optional, get_current_user
 from redis_client import get_redis
 from typing import Optional, List
+
 
 router = APIRouter(prefix="/links", tags=["links"])
 
@@ -59,51 +61,92 @@ async def create_link(link: LinkCreate,
     await db.refresh(new_link)
     return new_link
 
+@router.get("/my", response_model=List[LinkOut])
+async def get_my_links(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    result = await db.execute(select(Link).where(Link.user_id == current_user.id))
+    links = result.scalars().all()
+    return links
+
 
 @router.get("/{short_code}")
-async def redirect_link(short_code: str, db: AsyncSession = Depends(get_db)):
-    redis = await get_redis()
-    cached = await redis.get(f"link:{short_code}")
-    if cached:
-        data = json.loads(cached)
-        stmt = select(Link).where(Link.short_code == short_code)
-        result = await db.execute(stmt)
-        link_obj = result.scalars().first()
-        if link_obj:
-            link_obj.visits += 1
-            link_obj.last_visited = datetime.utcnow()
-            await db.commit()
-        return Response(status_code=307, headers={"Location": data["original_url"]})
+async def redirect_link(short_code: str,
+                        request: Request,
+                        db: AsyncSession = Depends(get_db)):
+    try:
+        redis = await get_redis()
+        cached = await redis.get(f"link:{short_code}")
+    except Exception as e:
+        print(f"Redis error: {e}")
+        cached = None
 
     result = await db.execute(select(Link).where(Link.short_code == short_code))
     link_obj = result.scalars().first()
     if not link_obj:
         raise HTTPException(status_code=404, detail="Link not found")
+
     if link_obj.expires_at and datetime.utcnow() > link_obj.expires_at:
         raise HTTPException(status_code=410, detail="Link expired")
+
+    client_ip = request.client.host
+    user_agent = request.headers.get("user-agent", "unknown")
+
+    now = datetime.utcnow()
+    day_str = now.strftime("%Y-%m-%d")
+    hour_str = now.strftime("%Y-%m-%d-%H")
+
+    from models import LinkVisit
+    visit = LinkVisit(
+        link_id=link_obj.id,
+        visited_at=now,
+        day_str=day_str,
+        hour_str=hour_str,
+        ip=client_ip,
+        user_agent=user_agent
+    )
+    db.add(visit)
+
     link_obj.visits += 1
-    link_obj.last_visited = datetime.utcnow()
+    link_obj.last_visited = now
     await db.commit()
-    await redis.set(f"link:{short_code}", json.dumps({"original_url": link_obj.original_url}), ex=60 * 60)
+
+    if not cached:
+        await redis.set(f"link:{short_code}", json.dumps({"original_url": link_obj.original_url}), ex=60 * 60)
+
     return Response(status_code=307, headers={"Location": link_obj.original_url})
 
 
 @router.delete("/{short_code}")
-async def delete_link(short_code: str,
-                      db: AsyncSession = Depends(get_db),
-                      current_user = Depends(get_current_user_optional)):
+async def delete_link(
+    short_code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user_optional)
+):
+
     result = await db.execute(select(Link).where(Link.short_code == short_code))
     link_obj = result.scalars().first()
     if not link_obj:
         raise HTTPException(status_code=404, detail="Link not found")
+
     if link_obj.user_id is not None:
         if not current_user or link_obj.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to delete this link")
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+    from models import LinkArchive
+    archived = LinkArchive(
+        link_id=link_obj.id,
+        short_code=link_obj.short_code,
+        original_url=link_obj.original_url,
+        reason="user"
+    )
+    db.add(archived)
+
     await db.delete(link_obj)
     await db.commit()
-    redis = await get_redis()
-    await redis.delete(f"link:{short_code}")
-    return {"detail": "Link deleted"}
+
+    return {"detail": "Link archived and deleted successfully"}
 
 
 @router.put("/{short_code}", response_model=LinkOut)
@@ -151,3 +194,116 @@ async def get_links_by_project(project_name: str, db: AsyncSession = Depends(get
     result = await db.execute(select(Link).where(Link.project == project_name))
     links = result.scalars().all()
     return links
+
+
+@router.get("/{short_code}/analytics/daily")
+async def link_analytics_daily(short_code: str, db: AsyncSession = Depends(get_db)):
+
+    from models import LinkVisit
+
+    result = await db.execute(select(Link).where(Link.short_code == short_code))
+    link_obj = result.scalars().first()
+    if not link_obj:
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    stmt = select(
+        LinkVisit.day_str,
+        func.count(LinkVisit.id)
+    ).where(LinkVisit.link_id == link_obj.id) \
+        .group_by(LinkVisit.day_str) \
+        .order_by(LinkVisit.day_str)
+
+    result = await db.execute(stmt)
+    rows = result.all()
+    return [{"day": row[0], "count": row[1]} for row in rows]
+
+
+@router.get("/{short_code}/analytics/hourly")
+async def link_analytics_hourly(short_code: str, db: AsyncSession = Depends(get_db)):
+    from models import LinkVisit
+    link_obj = (await db.execute(select(Link).where(Link.short_code == short_code))).scalars().first()
+    if not link_obj:
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    stmt = select(
+        LinkVisit.hour_str,
+        func.count(LinkVisit.id)
+    ).where(LinkVisit.link_id == link_obj.id)\
+     .group_by(LinkVisit.hour_str)\
+     .order_by(LinkVisit.hour_str)
+
+    result = await db.execute(stmt)
+    rows = result.all()
+    return [{"hour": row[0], "count": row[1]} for row in rows]
+
+@router.get("/{short_code}/analytics/agents")
+async def link_analytics_agents(short_code: str, db: AsyncSession = Depends(get_db)):
+    """
+    Возвращаем топ User-Agent с подсчётом переходов
+    """
+    from models import LinkVisit
+    link_obj = (await db.execute(select(Link).where(Link.short_code == short_code))).scalars().first()
+    if not link_obj:
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    stmt = select(
+        LinkVisit.user_agent,
+        func.count(LinkVisit.id)
+    ).where(LinkVisit.link_id == link_obj.id)\
+     .group_by(LinkVisit.user_agent)\
+     .order_by(func.count(LinkVisit.id).desc())
+
+    result = await db.execute(stmt)
+    rows = result.all()
+    return [{"user_agent": row[0], "count": row[1]} for row in rows]
+
+
+@router.get("/project/{project_name}/stats")
+async def get_project_stats(project_name: str, db: AsyncSession = Depends(get_db)):
+    result_links = await db.execute(select(Link).where(Link.project == project_name))
+    links = result_links.scalars().all()
+    if not links:
+        raise HTTPException(status_code=404, detail="No links found in this project")
+
+    link_ids = [l.id for l in links]
+
+    from models import LinkVisit
+    stmt_visits = select(func.count(LinkVisit.id)).where(LinkVisit.link_id.in_(link_ids))
+    total_visits = (await db.execute(stmt_visits)).scalar() or 0
+
+    stmt_unique_ips = select(func.count(func.distinct(LinkVisit.ip))).where(LinkVisit.link_id.in_(link_ids))
+    unique_ips = (await db.execute(stmt_unique_ips)).scalar() or 0
+
+    return {
+        "project_name": project_name,
+        "total_visits": total_visits,
+        "unique_ips": unique_ips
+    }
+
+
+@router.post("/{short_code}/renew")
+async def renew_link(short_code: str,
+                     db: AsyncSession = Depends(get_db),
+                     current_user = Depends(get_current_user_optional)):
+    """
+    Явное продление ссылки пользователем.
+    """
+    result = await db.execute(select(Link).where(Link.short_code == short_code))
+    link_obj = result.scalars().first()
+    if not link_obj:
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    if link_obj.user_id is not None:
+        if not current_user or link_obj.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+    from datetime import timedelta, datetime
+    if link_obj.expires_at and link_obj.expires_at > datetime.utcnow():
+        link_obj.expires_at = link_obj.expires_at + timedelta(days=7)
+    else:
+        link_obj.expires_at = datetime.utcnow() + timedelta(days=7)
+
+    await db.commit()
+    await db.refresh(link_obj)
+    return {"detail": "Link renewed", "new_expires_at": link_obj.expires_at}
+
