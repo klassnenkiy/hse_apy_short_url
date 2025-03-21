@@ -4,6 +4,7 @@ from sqlalchemy.future import select
 from auth import get_current_admin_user
 from models import Link, User
 from database import get_db
+import logging
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -16,16 +17,20 @@ async def get_all_links(db: AsyncSession = Depends(get_db), admin_user=Depends(g
     links = result.scalars().all()
     return links
 
+
 @router.delete("/links/{link_id}")
-async def admin_delete_link(link_id: int, db: AsyncSession = Depends(get_db), admin_user=Depends(get_current_admin_user)):
-    """
-    Удаление любой ссылки админом
-    """
+async def admin_delete_link(link_id: int, db: AsyncSession = Depends(get_db),
+                            admin_user=Depends(get_current_admin_user)):
+    logger.info(f"Admin is deleting link with ID: {link_id}")
+
     link_obj = (await db.execute(select(Link).where(Link.id == link_id))).scalars().first()
     if not link_obj:
         raise HTTPException(status_code=404, detail="Link not found")
+
     await db.delete(link_obj)
     await db.commit()
+
+    logger.info(f"Link {link_id} deleted by admin.")
     return {"detail": f"Link {link_id} deleted by admin"}
 
 @router.get("/users")

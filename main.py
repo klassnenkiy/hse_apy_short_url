@@ -1,4 +1,5 @@
 import uvicorn
+import logging
 from fastapi import FastAPI
 from database import engine
 from models import Base
@@ -6,6 +7,11 @@ from routes import links, users, admin
 from background_cleanup import scheduler
 from prometheus_fastapi_instrumentator import Instrumentator
 import asyncio
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 
 app = FastAPI(title="Link Shortener API")
 

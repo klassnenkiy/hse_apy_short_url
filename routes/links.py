@@ -1,6 +1,7 @@
 import string
 import random
 import json
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, BackgroundTasks
 from sqlalchemy import func
@@ -14,6 +15,10 @@ from redis_client import get_redis
 from typing import Optional, List
 
 router = APIRouter(prefix="/links", tags=["links"])
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 def generate_short_code(length: int = 6):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -46,6 +51,8 @@ async def search_link(original_url: str, db: AsyncSession = Depends(get_db)):
 async def create_link(link: LinkCreate,
                       db: AsyncSession = Depends(get_db),
                       current_user = Depends(get_current_user_optional)):
+    logger.info(f"Creating new link with original URL: {link.original_url}")
+
     if link.custom_alias:
         result = await db.execute(select(Link).where(Link.custom_alias == link.custom_alias))
         existing = result.scalars().first()
@@ -54,12 +61,6 @@ async def create_link(link: LinkCreate,
         short_code = link.custom_alias
     else:
         short_code = generate_short_code()
-        while True:
-            result = await db.execute(select(Link).where(Link.short_code == short_code))
-            existing = result.scalars().first()
-            if not existing:
-                break
-            short_code = generate_short_code()
 
     new_link = Link(
         short_code=short_code,
@@ -72,6 +73,8 @@ async def create_link(link: LinkCreate,
     db.add(new_link)
     await db.commit()
     await db.refresh(new_link)
+
+    logger.info(f"New link created with short code: {short_code}")
     return new_link
 
 @router.get("/my", response_model=List[LinkOut])
@@ -131,11 +134,10 @@ async def redirect_link(short_code: str,
 
 
 @router.delete("/{short_code}")
-async def delete_link(
-    short_code: str,
-    db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user_optional)
-):
+async def delete_link(short_code: str,
+                       db: AsyncSession = Depends(get_db),
+                       current_user = Depends(get_current_user_optional)):
+    logger.info(f"Deleting link with short code: {short_code}")
 
     result = await db.execute(select(Link).where(Link.short_code == short_code))
     link_obj = result.scalars().first()
@@ -146,7 +148,6 @@ async def delete_link(
         if not current_user or link_obj.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized")
 
-    from models import LinkArchive
     archived = LinkArchive(
         link_id=link_obj.id,
         short_code=link_obj.short_code,
@@ -158,7 +159,9 @@ async def delete_link(
     await db.delete(link_obj)
     await db.commit()
 
+    logger.info(f"Link with short code {short_code} deleted and archived.")
     return {"detail": "Link archived and deleted successfully"}
+
 
 
 @router.put("/{short_code}", response_model=LinkOut)
@@ -210,14 +213,17 @@ async def get_links_by_project(project_name: str, db: AsyncSession = Depends(get
 
 @router.get("/{short_code}/analytics/daily")
 async def link_analytics_daily(short_code: str, db: AsyncSession = Depends(get_db)):
-
-    from models import LinkVisit
-
+    redis = await get_redis()
+    cache_key = f"analytics:daily:{short_code}"
+    cached_data = await redis.get(cache_key)
+    if cached_data:
+        logger.info(f"Cache hit for daily analytics of {short_code}")
+        return json.loads(cached_data)
+    logger.info(f"Cache miss for daily analytics of {short_code}")
     result = await db.execute(select(Link).where(Link.short_code == short_code))
     link_obj = result.scalars().first()
     if not link_obj:
         raise HTTPException(status_code=404, detail="Link not found")
-
     stmt = select(
         LinkVisit.day_str,
         func.count(LinkVisit.id)
@@ -227,7 +233,12 @@ async def link_analytics_daily(short_code: str, db: AsyncSession = Depends(get_d
 
     result = await db.execute(stmt)
     rows = result.all()
-    return [{"day": row[0], "count": row[1]} for row in rows]
+
+    data = [{"day": row[0], "count": row[1]} for row in rows]
+
+    await redis.set(cache_key, json.dumps(data), ex=3600)
+
+    return data
 
 
 @router.get("/{short_code}/analytics/hourly")
