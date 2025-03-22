@@ -12,7 +12,7 @@ services:
       - redis
   ui:
     build: .
-    command: streamlit run ui_streamlit.py --server.enableCORS false --server.port 8501
+    command: streamlit run ui_streamlit.py --server.enableCORS false --server.port 8502
     ports:
       - "8502:8502"
     environment:
