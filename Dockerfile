@@ -5,12 +5,11 @@ RUN apt-get update && apt-get install -y nginx supervisor \
 
 RUN mkdir -p /run/nginx
 
-
 WORKDIR /app
-
 
 COPY . /app
 COPY nginx.conf /app/nginx.conf
+COPY supervisord.conf /app/supervisord.conf
 
 RUN pip install --no-cache-dir -r requirements.txt
 
