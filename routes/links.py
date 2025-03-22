@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from models import Link, User
+from models import Link, User, LinkVisit, LinkArchive
 from schemas import LinkCreate, LinkOut, LinkUpdate
 from database import get_db
 from auth import get_current_user_optional, get_current_user
