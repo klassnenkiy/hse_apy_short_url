@@ -1,9 +1,11 @@
 # Сервис сокращения ссылок
 
-Streamlit - https://hse-apy-short-url.onrender.com/
-Fastapi/Swagger - https://hse-apy-short-url.onrender.com/api/docs
-![deploy streamlit](https://github.com/user-attachments/assets/424f57cb-0ce1-4cc7-a58e-febf3514ceef)
-![deploy fastapi swagger](https://github.com/user-attachments/assets/7f06f906-0240-4876-8fbd-0faaf3ca7974)
+## Деплой
+
+- Streamlit - https://hse-apy-short-url.onrender.com/
+- Fastapi/Swagger - https://hse-apy-short-url.onrender.com/api/docs
+![deploy streamlit](https://github.com/klassnenkiy/hse_apy_short_url/blob/main/img/deploy%20streamlit.png)
+![deploy fastapi swagger](https://github.com/klassnenkiy/hse_apy_short_url/blob/main/img/deploy%20fastapi%20swagger.png)
 
 ## Описание проекта
 
