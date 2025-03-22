@@ -1,18 +1,19 @@
-FROM python:3.9-slim
-
-RUN apt-get update && apt-get install -y nginx supervisor \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-RUN mkdir -p /run/nginx
+FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY . /app
-COPY nginx.conf /app/nginx.conf
-COPY supervisord.conf /app/supervisord.conf
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    supervisor \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
 
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 80 8502
+COPY . .
 
-CMD ["supervisord", "-c", "/app/supervisord.conf"]
+COPY supervisord.conf /etc/supervisord.conf
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
