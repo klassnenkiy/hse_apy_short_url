@@ -15,9 +15,10 @@ logging.basicConfig(
 
 app = FastAPI(
     title="Link Shortener API",
-    openapi_url="/api/openapi.json",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc"
+    root_path="/api",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 app.include_router(users.router)
@@ -30,12 +31,21 @@ async def read_root():
 
 Instrumentator().instrument(app).expose(app)
 
-
 @app.on_event("startup")
 async def on_startup():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    asyncio.create_task(scheduler())
+    for i in range(10):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            asyncio.create_task(scheduler())
+            break
+        except Exception as e:
+            print(f"[Startup] DB not ready, retrying in 3s... (attempt {i+1})")
+            await asyncio.sleep(3)
+    else:
+        print("[Startup] Failed to connect to DB after multiple attempts.")
+        raise
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
