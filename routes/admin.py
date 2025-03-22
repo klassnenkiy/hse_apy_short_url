@@ -4,7 +4,6 @@ from sqlalchemy.future import select
 from auth import get_current_admin_user
 from models import Link, User
 from database import get_db
-import logging
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

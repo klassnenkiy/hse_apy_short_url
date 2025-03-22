@@ -11,9 +11,9 @@ services:
       - postgres
       - redis
     environment:
-      - DATABASE_URL=postgresql+asyncpg://short_url_3pps_user:qJVaAJXo0DhkBvz5KTakzT4szemEfcEr@postgres:5432/short_url_3pps
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=pMRwwlGnPBvFWGHTc-7ulJ9odt4yXd3AysAQbj1AJnY=
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
     expose:
       - "8000"
 
@@ -25,7 +25,6 @@ services:
     restart: always
     depends_on:
       - fastapi
-    # Если внутри streamlit используется API_URL, можно задать:
     environment:
       - API_URL=/api
     expose:
@@ -47,9 +46,9 @@ services:
     container_name: postgres
     restart: always
     environment:
-      POSTGRES_USER: short_url_3pps_user
-      POSTGRES_PASSWORD: qJVaAJXo0DhkBvz5KTakzT4szemEfcEr
-      POSTGRES_DB: short_url_3pps
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:

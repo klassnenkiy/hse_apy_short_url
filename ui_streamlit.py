@@ -9,7 +9,7 @@ st.set_page_config(layout="wide")
 # API_URL = "http://localhost:8000" # local
 # API_URL = "/api"  # local docker
 API_URL = "https://hse-apy-short-url.onrender.com/api/"  # render.com
-EXTERNAL_API_URL = "http://localhost:8000"
+EXTERNAL_API_URL = "https://hse-apy-short-url.onrender.com/api"
 
 if "token" not in st.session_state:
     st.session_state.token = None

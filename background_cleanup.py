@@ -8,8 +8,6 @@ from email.mime.text import MIMEText
 import aiosmtplib
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
-from typing import Optional
-from config import settings
 
 
 UNUSED_LINKS_DAYS = 30
