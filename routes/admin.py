@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+
 @router.get("/links")
 async def get_all_links(db: AsyncSession = Depends(get_db), admin_user=Depends(get_current_admin_user)):
     """
@@ -19,9 +20,11 @@ async def get_all_links(db: AsyncSession = Depends(get_db), admin_user=Depends(g
     links = result.scalars().all()
     return links
 
+
 @router.delete("/links/{link_id}")
-async def admin_delete_link(link_id: int, db: AsyncSession = Depends(get_db),
-                              admin_user=Depends(get_current_admin_user)):
+async def admin_delete_link(
+        link_id: int, db: AsyncSession = Depends(get_db),
+        admin_user=Depends(get_current_admin_user)):
     logger.info(f"Admin is deleting link with ID: {link_id}")
 
     link_obj = (await db.execute(select(Link).where(Link.id == link_id))).scalars().first()
@@ -33,6 +36,7 @@ async def admin_delete_link(link_id: int, db: AsyncSession = Depends(get_db),
 
     logger.info(f"Link {link_id} deleted by admin.")
     return {"detail": f"Link {link_id} deleted by admin"}
+
 
 @router.get("/users")
 async def get_all_users(db: AsyncSession = Depends(get_db), admin_user=Depends(get_current_admin_user)):

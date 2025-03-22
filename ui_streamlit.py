@@ -20,6 +20,7 @@ if "role" not in st.session_state:
 if "page" not in st.session_state:
     st.session_state.page = "Dashboard"
 
+
 def login(username, password):
     resp = requests.post(
         f"{API_URL}/users/token",
@@ -41,6 +42,7 @@ def login(username, password):
     else:
         st.error("Неверный логин/пароль.")
 
+
 def register(username, email, password):
     payload = {"username": username, "email": email, "password": password}
     resp = requests.post(f"{API_URL}/users/register", json=payload)
@@ -48,6 +50,7 @@ def register(username, email, password):
         st.success("Регистрация прошла успешно! Теперь выполните логин.")
     else:
         st.error(resp.json().get("detail", "Ошибка регистрации"))
+
 
 def quick_create_link():
     st.header("Быстро создать ссылку (без регистрации)")
@@ -70,6 +73,7 @@ def quick_create_link():
             st.write(resp.json())
         else:
             st.error(resp.json().get("detail", "Ошибка при создании ссылки"))
+
 
 if st.session_state.token is None:
     st.sidebar.header("Логин / Регистрация")

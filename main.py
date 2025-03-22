@@ -25,11 +25,13 @@ app.include_router(users.router)
 app.include_router(links.router)
 app.include_router(admin.router)
 
+
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to the Link Shortener API!"}
 
 Instrumentator().instrument(app).expose(app)
+
 
 @app.on_event("startup")
 async def on_startup():

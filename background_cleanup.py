@@ -13,6 +13,7 @@ from email.header import Header
 UNUSED_LINKS_DAYS = 30
 WARN_BEFORE_HOURS = 24
 
+
 async def cleanup_expired_links(db: AsyncSession):
     now = datetime.utcnow()
 

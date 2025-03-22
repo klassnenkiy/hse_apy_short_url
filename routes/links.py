@@ -3,7 +3,7 @@ import random
 import json
 import logging
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -12,7 +12,7 @@ from schemas import LinkCreate, LinkOut, LinkUpdate
 from database import get_db
 from auth import get_current_user_optional, get_current_user
 from redis_client import get_redis
-from typing import Optional, List
+from typing import List
 
 router = APIRouter(prefix="/links", tags=["links"])
 
@@ -50,7 +50,7 @@ async def search_link(original_url: str, db: AsyncSession = Depends(get_db)):
 @router.post("/shorten", response_model=LinkOut)
 async def create_link(link: LinkCreate,
                       db: AsyncSession = Depends(get_db),
-                      current_user = Depends(get_current_user_optional)):
+                      current_user=Depends(get_current_user_optional)):
     logger.info(f"Creating new link with original URL: {link.original_url}")
 
     if link.custom_alias:
@@ -76,6 +76,7 @@ async def create_link(link: LinkCreate,
 
     logger.info(f"New link created with short code: {short_code}")
     return new_link
+
 
 @router.get("/my", response_model=List[LinkOut])
 async def get_my_links(
@@ -134,9 +135,11 @@ async def redirect_link(short_code: str,
 
 
 @router.delete("/{short_code}")
-async def delete_link(short_code: str,
-                       db: AsyncSession = Depends(get_db),
-                       current_user = Depends(get_current_user_optional)):
+async def delete_link(
+        short_code: str,
+        db: AsyncSession = Depends(get_db),
+        current_user=Depends(get_current_user_optional)
+):
     logger.info(f"Deleting link with short code: {short_code}")
 
     result = await db.execute(select(Link).where(Link.short_code == short_code))
@@ -163,12 +166,11 @@ async def delete_link(short_code: str,
     return {"detail": "Link archived and deleted successfully"}
 
 
-
 @router.put("/{short_code}", response_model=LinkOut)
 async def update_link(short_code: str,
                       link_update: LinkUpdate,
                       db: AsyncSession = Depends(get_db),
-                      current_user = Depends(get_current_user_optional)):
+                      current_user=Depends(get_current_user_optional)):
     result = await db.execute(select(Link).where(Link.short_code == short_code))
     link_obj = result.scalars().first()
     if not link_obj:
@@ -197,12 +199,14 @@ async def link_stats(short_code: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Link not found")
     return link_obj
 
+
 @router.get("/expired", response_model=List[LinkOut])
 async def get_expired_links(db: AsyncSession = Depends(get_db)):
     now = datetime.utcnow()
     result = await db.execute(select(Link).where(Link.expires_at != None, Link.expires_at < now))
     expired_links = result.scalars().all()
     return expired_links
+
 
 @router.get("/project/{project_name}", response_model=List[LinkOut])
 async def get_links_by_project(project_name: str, db: AsyncSession = Depends(get_db)):
@@ -259,6 +263,7 @@ async def link_analytics_hourly(short_code: str, db: AsyncSession = Depends(get_
     rows = result.all()
     return [{"hour": row[0], "count": row[1]} for row in rows]
 
+
 @router.get("/{short_code}/analytics/agents")
 async def link_analytics_agents(short_code: str, db: AsyncSession = Depends(get_db)):
     """
@@ -307,7 +312,7 @@ async def get_project_stats(project_name: str, db: AsyncSession = Depends(get_db
 @router.post("/{short_code}/renew")
 async def renew_link(short_code: str,
                      db: AsyncSession = Depends(get_db),
-                     current_user = Depends(get_current_user_optional)):
+                     current_user=Depends(get_current_user_optional)):
     """
     Явное продление ссылки пользователем.
     """
@@ -329,4 +334,3 @@ async def renew_link(short_code: str,
     await db.commit()
     await db.refresh(link_obj)
     return {"detail": "Link renewed", "new_expires_at": link_obj.expires_at}
-

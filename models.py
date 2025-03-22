@@ -5,6 +5,7 @@ from datetime import datetime
 
 Base = declarative_base()
 
+
 class Link(Base):
     __tablename__ = "links"
     id = Column(Integer, primary_key=True, index=True)
@@ -19,6 +20,7 @@ class Link(Base):
     last_visited = Column(DateTime(timezone=True), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
+
 class LinkVisit(Base):
     __tablename__ = "link_visits"
     id = Column(Integer, primary_key=True, index=True)
@@ -28,6 +30,7 @@ class LinkVisit(Base):
     hour_str = Column(String(25), nullable=False)
     ip = Column(String(50), nullable=True)
     user_agent = Column(Text, nullable=True)
+
 
 class User(Base):
     __tablename__ = "users"
