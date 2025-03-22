@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 st.set_page_config(layout="wide")
 
-API_URL = "http://web:8000"
+API_URL = "https://hse-apy-short-url.onrender.com/api"
 EXTERNAL_API_URL = "http://localhost:8000"
 
 if "token" not in st.session_state:

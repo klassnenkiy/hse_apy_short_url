@@ -13,6 +13,6 @@ COPY supervisord.conf /app/supervisord.conf
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 80 8501
+EXPOSE 80 8502
 
 CMD ["supervisord", "-c", "/app/supervisord.conf"]
