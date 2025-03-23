@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Bool
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
+from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
@@ -19,6 +20,7 @@ class Link(Base):
     auto_renew = Column(Boolean, default=False)
     last_visited = Column(DateTime(timezone=True), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    visits_rel = relationship("LinkVisit", back_populates="link", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class LinkVisit(Base):
@@ -30,7 +32,7 @@ class LinkVisit(Base):
     hour_str = Column(String(25), nullable=False)
     ip = Column(String(50), nullable=True)
     user_agent = Column(Text, nullable=True)
-
+    link = relationship("Link", back_populates="visits_rel")
 
 class User(Base):
     __tablename__ = "users"
@@ -49,4 +51,4 @@ class LinkArchive(Base):
     short_code = Column(String(50))
     original_url = Column(Text)
     deleted_at = Column(DateTime(timezone=True), server_default=func.now())
-    reason = Column(String(50), nullable=False)  # "expired", "user", "admin"
+    reason = Column(String(50), nullable=False)
