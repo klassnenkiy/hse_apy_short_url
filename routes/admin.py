@@ -5,6 +5,8 @@ from auth import get_current_admin_user
 from models import Link, User
 from database import get_db
 from redis_client import get_redis
+from datetime import datetime
+from background_cleanup import send_warning_email
 import logging
 
 logger = logging.getLogger(__name__)
@@ -57,3 +59,19 @@ async def get_all_users(db: AsyncSession = Depends(get_db), admin_user=Depends(g
     result = await db.execute(select(User))
     users = result.scalars().all()
     return users
+
+
+@router.post("/test-email")
+async def test_email_notification(email: str, db: AsyncSession = Depends(get_db),
+                                  admin_user=Depends(get_current_admin_user)):
+    """
+    Тестовая отправка письма для проверки настроек уведомлений.
+    """
+    from datetime import timedelta
+    now = datetime.utcnow()
+    class DummyLink:
+        short_code = "TEST123"
+        expires_at = now + timedelta(days=7)
+    dummy_link = DummyLink()
+    await send_warning_email(email, dummy_link)
+    return {"detail": "Test email sent"}

@@ -109,6 +109,8 @@ else:
     if st.session_state.role == "admin":
         if st.sidebar.button("Админ-панель", key="btn_nav_admin"):
             st.session_state.page = "AdminPanel"
+        if st.sidebar.button("Настройки уведомлений", key="btn_nav_email"):
+            st.session_state.page = "EmailNotifications"
 
 if st.session_state.token:
     headers = {"Authorization": f"Bearer {st.session_state.token}"}
@@ -299,6 +301,18 @@ if st.session_state.token:
                 st.write("Статистика по проекту:", proj_resp.json())
             else:
                 st.error(proj_resp.text)
+
+    elif page == "EmailNotifications" and st.session_state.role == "admin":
+        st.header("Настройки уведомлений")
+        st.write("Здесь можно протестировать отправку тестового e-mail уведомления.")
+
+        test_email = st.text_input("Введите e-mail для тестового уведомления", key="test_email")
+        if st.button("Отправить тестовое письмо", key="btn_send_test_email"):
+            resp = requests.post(f"{API_URL}/admin/test-email", params={"email": test_email}, headers=headers)
+            if resp.status_code == 200:
+                st.success("Тестовое письмо отправлено!")
+            else:
+                st.error(resp.json().get("detail", "Ошибка при отправке письма"))
 
     elif page == "AdminPanel" and st.session_state.role == "admin":
         st.header("Админ-панель")

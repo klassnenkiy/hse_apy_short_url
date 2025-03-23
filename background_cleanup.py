@@ -8,7 +8,7 @@ from email.mime.text import MIMEText
 import aiosmtplib
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
-
+from config import settings
 
 UNUSED_LINKS_DAYS = 30
 WARN_BEFORE_HOURS = 24
@@ -77,10 +77,10 @@ async def send_warning_email(email_to: str, link: Link):
     Асинхронная отправка письма о скором истечении ссылки.
     """
     subject = "Your link is about to expire!"
-    body = f"Hello!\n\nYour link with short code '{link.short_code}' will expire at {link.expires_at}.\n" \
-           f"Please renew it if you still need it.\n\nRegards,\nYour Link Shortener"
+    body = (f"Hello!\n\nYour link with short code '{link.short_code}' will expire at {link.expires_at}.\n"
+            f"Please renew it if you still need it.\n\nRegards,\nYour Link Shortener")
 
-    sender_email = "your_address@gmail.com"
+    sender_email = settings.SENDER_EMAIL
 
     message = MIMEMultipart("alternative")
     message["Subject"] = Header(subject, "utf-8")
@@ -90,10 +90,10 @@ async def send_warning_email(email_to: str, link: Link):
     text_part = MIMEText(body, "plain", "utf-8")
     message.attach(text_part)
 
-    smtp_hostname = "smtp.gmail.com"
-    smtp_port = 587
-    smtp_username = "your_address@gmail.com"
-    smtp_password = "YOUR_APP_PASSWORD"
+    smtp_hostname = settings.SMTP_HOST
+    smtp_port = settings.SMTP_PORT
+    smtp_username = settings.SMTP_USERNAME
+    smtp_password = settings.SMTP_PASSWORD
 
     try:
         await aiosmtplib.send(
