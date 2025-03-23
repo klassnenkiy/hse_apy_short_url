@@ -78,7 +78,8 @@ async def create_link(link: LinkCreate,
         custom_alias=link.custom_alias,
         expires_at=link.expires_at,
         project=link.project,
-        user_id=current_user.id if current_user else None
+        user_id=current_user.id if current_user else None,
+        auto_renew=link.auto_renew
     )
     db.add(new_link)
     await db.commit()
@@ -194,6 +195,8 @@ async def update_link(short_code: str,
         link_obj.expires_at = link_update.expires_at
     if link_update.project is not None:
         link_obj.project = link_update.project
+    if link_update.auto_renew is not None:
+        link_obj.auto_renew = link_update.auto_renew
     await db.commit()
     await db.refresh(link_obj)
     await clear_link_cache(link_obj)

@@ -310,6 +310,19 @@ if st.session_state.token:
                 st.dataframe(df_all_links, use_container_width=True)
             else:
                 st.error(admin_links_resp.text)
+
+        st.subheader("Удалить ссылку")
+        del_link_id = st.text_input("Введите ID ссылки для удаления", key="admin_delete_link_id")
+        if st.button("Удалить ссылку", key="btn_admin_delete_link"):
+            if del_link_id:
+                delete_resp = requests.delete(f"{API_URL}/admin/links/{del_link_id}", headers=headers)
+                if delete_resp.status_code == 200:
+                    st.success("Ссылка удалена!")
+                else:
+                    st.error(delete_resp.json().get("detail", "Ошибка при удалении ссылки"))
+            else:
+                st.warning("Введите ID ссылки")
+
         if st.button("Обновить список пользователей", key="btn_admin_users"):
             admin_users_resp = requests.get(f"{API_URL}/admin/users", headers=headers)
             if admin_users_resp.status_code == 200:

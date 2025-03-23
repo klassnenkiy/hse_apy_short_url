@@ -11,15 +11,18 @@ class LinkBase(BaseModel):
 
 class LinkCreate(LinkBase):
     custom_alias: Optional[str] = None
+    auto_renew: Optional[bool] = False
 
 
 class LinkUpdate(BaseModel):
     original_url: Optional[HttpUrl] = None
     expires_at: Optional[datetime] = None
     project: Optional[str] = None
+    auto_renew: Optional[bool] = None
 
 
 class LinkOut(BaseModel):
+    id: int
     short_code: str
     original_url: HttpUrl
     created_at: datetime
@@ -27,6 +30,7 @@ class LinkOut(BaseModel):
     project: Optional[str] = None
     visits: int
     last_visited: Optional[datetime] = None
+    auto_renew: bool
 
     class Config:
         from_attributes = True
