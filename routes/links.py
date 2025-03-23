@@ -2,7 +2,7 @@ import string
 import random
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import timedelta, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -334,11 +334,11 @@ async def renew_link(short_code: str,
         if not current_user or link_obj.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized")
 
-    from datetime import timedelta, datetime
-    if link_obj.expires_at and link_obj.expires_at > datetime.utcnow():
+    now = datetime.now(timezone.utc)
+    if link_obj.expires_at and link_obj.expires_at > now:
         link_obj.expires_at = link_obj.expires_at + timedelta(days=7)
     else:
-        link_obj.expires_at = datetime.utcnow() + timedelta(days=7)
+        link_obj.expires_at = now + timedelta(days=7)
 
     await db.commit()
     await db.refresh(link_obj)
