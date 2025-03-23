@@ -24,6 +24,16 @@ def generate_short_code(length: int = 6):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
+async def clear_link_cache(link: Link):
+    try:
+        redis = await get_redis()
+        await redis.delete(f"link:{link.short_code}")
+        await redis.delete(f"search:{link.original_url}")
+    except Exception as e:
+        logger.warning(f"Failed to clear cache for link {link.short_code}: {e}")
+
+
+
 @router.get("/search")
 async def search_link(original_url: str, db: AsyncSession = Depends(get_db)):
     try:
@@ -161,7 +171,7 @@ async def delete_link(
 
     await db.delete(link_obj)
     await db.commit()
-
+    await clear_link_cache(link_obj)
     logger.info(f"Link with short code {short_code} deleted and archived.")
     return {"detail": "Link archived and deleted successfully"}
 
@@ -186,8 +196,7 @@ async def update_link(short_code: str,
         link_obj.project = link_update.project
     await db.commit()
     await db.refresh(link_obj)
-    redis = await get_redis()
-    await redis.delete(f"link:{short_code}")
+    await clear_link_cache(link_obj)
     return link_obj
 
 
@@ -333,4 +342,5 @@ async def renew_link(short_code: str,
 
     await db.commit()
     await db.refresh(link_obj)
+    await clear_link_cache(link_obj)
     return {"detail": "Link renewed", "new_expires_at": link_obj.expires_at}
